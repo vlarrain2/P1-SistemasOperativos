@@ -249,7 +249,7 @@ int os_exists(char* filename)
     fclose(file);
     free(buffer);
     return(0);
-
+}
 
 
 
