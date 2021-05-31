@@ -85,11 +85,11 @@ void os_bitmap(unsigned num){
         printf("%i\n", bitMapPointer);
 		for (int index = 0; index < BLOCK_SIZE; index++)
 			{
-				///
 				unsigned int byte = buffer[index];
 				for (size_t i = 0; i < 8; i++)
 				{
-					unsigned int bit = byte & 0x080;
+					//and con 10000000, si es 1 el valid bit es 1.
+                    unsigned int bit = byte & 0x080;
 					bit >>= 7;
 					if (bit == 1)
 						taken++;
@@ -97,8 +97,9 @@ void os_bitmap(unsigned num){
 						freed++;
 					byte <<= 1;
 				}
-				///
+                ///Printeamos dos digitos en hexadecimal (enunciado).
 				printf("%02X", ((unsigned int)buffer[index]) & 0x0FF);
+                ///Forma del print
 				if (index % 16 == 15)
 				{
 					printf("\n");
@@ -115,9 +116,8 @@ void os_bitmap(unsigned num){
     }
     else if (num == 0)
     {
-
+        ///Encontrar cuantos bloques bitmap tiene la particion (CURRENT_PARTITION)
         int nofbitmaps = get_bitmaps_number(CURRENT_PARTITION);
-         ///Encontrar cuantos bloques bitmap tiene la particion (CURRENT_PARTITION)
         for (int i=0; i<nofbitmaps; i++)
         {
             int bitMapPointer = find_partition(CURRENT_PARTITION)*BLOCK_SIZE + MBT_SIZE + (i+1)*BLOCK_SIZE;
@@ -164,7 +164,6 @@ int get_bitmaps_number(int partition)
 	long int blocks = find_partition_size(partition);
 	if (blocks%BLOCK_SIZE == 0)
 	{
-        //printf("numero de bitmaps de : %d: %ld",partition, blocks%BLOCK_SIZE);
 		return blocks/(BLOCK_SIZE*8);
 	}
 	else
@@ -174,20 +173,26 @@ int get_bitmaps_number(int partition)
 }
 
 
-/*void os_ls(){
+void os_ls(){
     FILE *file = fopen(DISK_NAME, "rb");
-    char *buffer;
+    unsigned char *buffer;
     buffer = malloc(sizeof(char) * BLOCK_SIZE);
-    int address_block = MBT_SIZE + find_partition(CURRENT_PARTITION);
-    printf("Files in Partition %d:\n", CURRENT_PARTITION);
+    int address_block = MBT_SIZE + find_partition(CURRENT_PARTITION)*BLOCK_SIZE;
+    printf("Files in Partition %d with block_adress: %d\n", CURRENT_PARTITION, address_block);
     fseek(file, address_block, SEEK_SET);
     fread(buffer, sizeof(char), BLOCK_SIZE, file);
-    for (int i = 0; i <= 64; i++) //64 es el número de entradas en un Bloque de Directorio
+    for (int i = 0; i < 64; i++) //64 es el número de entradas en un Bloque de Directorio
     {
-        int a = 2;
-        
-        
-        
-
+        if (buffer[i*32] ^ (0x0100000000000000000000000000000000000000000000000000000000000000))
+        {
+            for (int actual_char = 4; actual_char < 32; actual_char ++ ) //se actualiza el fileName[29] byte a byte, espero que el string mismo sepa hasta dónde es según el null terminator
+            {
+              printf("%c", buffer[i*32 + actual_char]);
+            }
+            printf("\n");
+        }
     }
-}*/
+    printf("\n");
+    free(buffer);
+    fclose(file);
+}
