@@ -18,3 +18,4 @@ long int find_partition_size(int id);
 void os_ls();
 void os_bitmap(unsigned num);
 int get_bitmaps_number(int partition);
+void os_mbt();
