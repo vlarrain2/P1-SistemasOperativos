@@ -64,29 +64,6 @@ long int find_partition_size(int id)
     return 0;
 }
 
-void os_ls(){
-    FILE *file = fopen(DISK_NAME, "rb");
-    unsigned char *buffer;
-    buffer = malloc(sizeof(char) * BLOCK_SIZE);
-    int address_block = MBT_SIZE + find_partition(CURRENT_PARTITION)*BLOCK_SIZE;
-    printf("Files in Partition %d with block_adress: %d\n", CURRENT_PARTITION, address_block);
-    fseek(file, address_block, SEEK_SET);
-    fread(buffer, sizeof(char), BLOCK_SIZE, file);
-    for (int i = 0; i < 64; i++) //64 es el número de entradas en un Bloque de Directorio
-    {
-        if (buffer[i*32] ^ (0x0100000000000000000000000000000000000000000000000000000000000000))
-        {
-            for (int actual_char = 4; actual_char < 32; actual_char ++ ) //se actualiza el fileName[29] byte a byte, espero que el string mismo sepa hasta dónde es según el null terminator
-            {
-              printf("%c", buffer[i*32 + actual_char]);
-            }
-            printf("\n");
-        }
-    }
-    printf("\n");
-    free(buffer);
-    fclose(file);
-}
 
 void os_bitmap(unsigned num){
     FILE *file;
@@ -194,7 +171,7 @@ int get_bitmaps_number(int partition)
 	{
 		return blocks/(BLOCK_SIZE*8) +1;
 	}
-}
+} 
 
 void os_mbt()
 {
@@ -206,3 +183,73 @@ void os_mbt()
         }
     }
 }
+
+
+void os_ls(){
+    FILE *file = fopen(DISK_NAME, "rb");
+    unsigned char *buffer;
+    buffer = malloc(sizeof(char) * BLOCK_SIZE);
+    int address_block = MBT_SIZE + find_partition(CURRENT_PARTITION)*BLOCK_SIZE;
+    printf("Files in Partition %d with block_adress: %d\n", CURRENT_PARTITION, address_block);
+    fseek(file, address_block, SEEK_SET);
+    fread(buffer, sizeof(char), BLOCK_SIZE, file);
+    for (int i = 0; i < 64; i++) //64 es el número de entradas en un Bloque de Directorio
+    {
+        long int aux = buffer[i*32];
+        aux >>= 24;
+
+        if (aux ^ (0x01))
+        {
+            for (int actual_char = 4; actual_char < 32; actual_char ++ ) //se actualiza el fileName[29] byte a byte, espero que el string mismo sepa hasta dónde es según el null terminator
+            {
+              printf("%c", buffer[i*32 + actual_char]);
+            }
+            printf("\n");
+        }
+    }
+    printf("\n");
+    free(buffer);
+    fclose(file);
+}
+
+int os_exists(char* filename)
+{
+    FILE* file = fopen(DISK_NAME, "rb");
+    unsigned char* buffer;
+    buffer = malloc(sizeof(char) * BLOCK_SIZE);
+    int address_block = MBT_SIZE + find_partition(CURRENT_PARTITION) * BLOCK_SIZE;
+    char entryFileName[29];
+    int result;
+
+    printf("Files in Partition %d with block_adress: %d\n", CURRENT_PARTITION, address_block);
+    fseek(file, address_block, SEEK_SET);
+    fread(buffer, sizeof(char), BLOCK_SIZE, file);
+    for (int i = 0; i < 64; i++)
+    {
+        long int aux = buffer[i*32];
+        aux >>= 24;
+
+        if (aux ^ (0x01))
+        {
+            for (int actual_char = 4; actual_char < 32; actual_char ++)
+            {
+                unsigned char byte = buffer[i * 32 + actual_char];
+                entryFileName[actual_char - 4] = byte;
+            }
+            result = strcmp(filename, entryFileName);
+            if (result == 0)
+            {
+                fclose(file);
+                free(buffer);
+                printf("El archivo está en la partición \n");
+                return(1);
+            }
+        }    
+    }
+    fclose(file);
+    free(buffer);
+    return(0);
+
+
+
+
