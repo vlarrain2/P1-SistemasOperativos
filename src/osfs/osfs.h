@@ -16,3 +16,4 @@ void os_mount(char* diskname, int partition);
 long int find_partition(int id);
 long int find_partition_size(int id);
 void os_ls();
+int os_exists(char* filename);
