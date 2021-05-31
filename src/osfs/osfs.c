@@ -64,6 +64,127 @@ long int find_partition_size(int id)
     return 0;
 }
 
+
+void os_bitmap(unsigned num){
+    FILE *file;
+	char *buffer;
+	file = fopen(DISK_NAME, "rb");
+    int freed = 0;
+    int taken = 0;
+    
+    if (file == NULL)
+	{
+        exit(1);
+	}
+    if (num != 0)
+    {
+        ///definir puntero al bitmap que tenemos que imprimir
+		int bitMapPointer = find_partition(CURRENT_PARTITION)*BLOCK_SIZE + MBT_SIZE + num*BLOCK_SIZE;
+        buffer = malloc(sizeof(char) * BLOCK_SIZE);
+		fseek(file, bitMapPointer, SEEK_SET);
+		fread(buffer, sizeof(char), BLOCK_SIZE, file);
+        printf("%i\n", bitMapPointer);
+		for (int index = 0; index < BLOCK_SIZE; index++)
+			{
+				unsigned int byte = buffer[index];
+				for (size_t i = 0; i < 8; i++)
+				{
+					//and con 10000000, si es 1 el valid bit es 1.
+                    unsigned int bit = byte & 0x080;
+					bit >>= 7;
+					if (bit == 1)
+						taken++;
+					else
+						freed++;
+					byte <<= 1;
+				}
+                ///Printeamos dos digitos en hexadecimal (enunciado).
+				printf("%02X", ((unsigned int)buffer[index]) & 0x0FF);
+                ///Forma del print
+				if (index % 16 == 15)
+				{
+					printf("\n");
+				}
+				else
+				{
+					printf(" ");
+				}
+			}
+			printf("Bloques Ocupados: %i\n", taken);
+			printf("Bloques Libres: %i\n", freed);
+			printf("Total de Bloques: %i\n", freed + taken);
+        free(buffer);
+    }
+    else if (num == 0)
+    {
+        ///Encontrar cuantos bloques bitmap tiene la particion (CURRENT_PARTITION)
+        int nofbitmaps = get_bitmaps_number(CURRENT_PARTITION);
+        for (int i=0; i<nofbitmaps; i++)
+        {
+            int bitMapPointer = find_partition(CURRENT_PARTITION)*BLOCK_SIZE + MBT_SIZE + (i+1)*BLOCK_SIZE;
+            buffer = malloc(sizeof(char) * BLOCK_SIZE);
+            fseek(file, bitMapPointer, SEEK_SET);
+            fread(buffer, sizeof(char), BLOCK_SIZE, file);
+            printf("Bitmap numero %i de la Particion %i\n", i+1, CURRENT_PARTITION);
+            for (int index = 0; index < BLOCK_SIZE; index++)
+			{
+				///
+				unsigned int byte = buffer[index];
+				for (size_t i = 0; i < 8; i++)
+				{
+					unsigned int bit = byte & 0x080;
+					bit >>= 7;
+					if (bit == 1)
+						taken++;
+					else
+						freed++;
+					byte <<= 1;
+				}
+				///
+				printf("%02X", ((unsigned int)buffer[index]) & 0x0FF);
+				if (index % 16 == 15)
+				{
+					printf("\n");
+				}
+				else
+				{
+					printf(" ");
+				}
+			}
+			printf("Bloques Ocupados: %i\n", taken);
+			printf("Bloques Libres: %i\n", freed);
+			printf("Total de Bloques: %i\n", freed + taken);
+        free(buffer);
+        } 
+    }
+    fclose(file);
+}
+
+int get_bitmaps_number(int partition)
+{
+	long int blocks = find_partition_size(partition);
+	if (blocks%BLOCK_SIZE == 0)
+	{
+		return blocks/(BLOCK_SIZE*8);
+	}
+	else
+	{
+		return blocks/(BLOCK_SIZE*8) +1;
+	}
+} 
+
+void os_mbt()
+{
+    for (int i =0; i<127;i++)
+    {
+        if (find_partition(i)!=0)
+        {
+            printf("Particion Valida de id %i\n", i);
+        }
+    }
+}
+
+
 void os_ls(){
     FILE *file = fopen(DISK_NAME, "rb");
     unsigned char *buffer;
@@ -128,4 +249,7 @@ int os_exists(char* filename)
     fclose(file);
     free(buffer);
     return(0);
-}
+
+
+
+
