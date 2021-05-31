@@ -5,7 +5,7 @@ typedef struct osFile{
     int location;
 }osFile;
 
-osFile* os_open(char* filename, char mode);
+void os_open(char* filename, char mode);
 int os_read(osFile* file_desc, void* buffer, int nbytes);
 int os_write(osFile* file_desc, void* buffer, int nbytes);
 int os_close(osFile* file_desc);
