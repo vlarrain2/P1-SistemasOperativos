@@ -45,10 +45,10 @@ LIB=$(MTH)
 ###############################################################################
 
 # Directorios con elementos de uso común
-COMMON=file_manager
+COMMON=
 
 # Directorios que serán compilados a un programa
-PROGRAMS=crtree
+PROGRAMS=osfs
 
 # Todos los directorios que contienen archivos de código
 SRCDIR=$(COMMON) $(PROGRAMS)

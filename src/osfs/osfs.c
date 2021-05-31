@@ -64,20 +64,26 @@ long int find_partition_size(int id)
     return 0;
 }
 
-/*void os_ls(){
+void os_ls(){
     FILE *file = fopen(DISK_NAME, "rb");
-    char *buffer;
+    unsigned char *buffer;
     buffer = malloc(sizeof(char) * BLOCK_SIZE);
-    int address_block = MBT_SIZE + find_partition(CURRENT_PARTITION);
-    printf("Files in Partition %d:\n", CURRENT_PARTITION);
+    int address_block = MBT_SIZE + find_partition(CURRENT_PARTITION)*BLOCK_SIZE;
+    printf("Files in Partition %d with block_adress: %d\n", CURRENT_PARTITION, address_block);
     fseek(file, address_block, SEEK_SET);
     fread(buffer, sizeof(char), BLOCK_SIZE, file);
-    for (int i = 0; i <= 64; i++) //64 es el número de entradas en un Bloque de Directorio
+    for (int i = 0; i < 64; i++) //64 es el número de entradas en un Bloque de Directorio
     {
-        int a = 2;
-        
-        
-        
-
+        if (buffer[i*32] ^ (0x0100000000000000000000000000000000000000000000000000000000000000))
+        {
+            for (int actual_char = 4; actual_char < 32; actual_char ++ ) //se actualiza el fileName[29] byte a byte, espero que el string mismo sepa hasta dónde es según el null terminator
+            {
+              printf("%c", buffer[i*32 + actual_char]);
+            }
+            printf("\n");
+        }
     }
-}*/
+    printf("\n");
+    free(buffer);
+    fclose(file);
+}
