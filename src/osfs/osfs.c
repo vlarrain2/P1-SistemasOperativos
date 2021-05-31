@@ -195,3 +195,14 @@ int get_bitmaps_number(int partition)
 		return blocks/(BLOCK_SIZE*8) +1;
 	}
 }
+
+void os_mbt()
+{
+    for (int i =0; i<127;i++)
+    {
+        if (find_partition(i)!=0)
+        {
+            printf("Particion Valida de id %i\n", i);
+        }
+    }
+}
