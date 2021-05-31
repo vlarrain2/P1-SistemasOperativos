@@ -16,3 +16,5 @@ void os_mount(char* diskname, int partition);
 long int find_partition(int id);
 long int find_partition_size(int id);
 void os_ls();
+void os_bitmap(unsigned num);
+int get_bitmaps_number(int partition);
