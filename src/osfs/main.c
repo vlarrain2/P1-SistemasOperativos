@@ -9,7 +9,8 @@
 int main(int argc, char **argv)
 {
     os_mount(argv[1], atoi(argv[2]));
-
+    os_mbt();
+    os_reset_mbt();
     os_mbt();
 
 }
