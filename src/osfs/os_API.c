@@ -83,14 +83,9 @@ void os_bitmap(unsigned num){
         buffer = malloc(sizeof(char) * BLOCK_SIZE);
 		fseek(file, bitMapPointer, SEEK_SET);
 		fread(buffer, sizeof(char), BLOCK_SIZE, file);
-        printf("%i\n", bitMapPointer);
 		for (int index = 0; index < BLOCK_SIZE; index++)
 			{
 				unsigned int byte = buffer[index];
-                if (byte !=0){
-                printf("byte: %u ", byte);
-                printf("byte shifted: %u\n", byte<<=1);
-                }
 				for (size_t i = 0; i < 8; i++)
 				{
 					//and con 10000000, si es 1 el valid bit es 1.

@@ -12,7 +12,7 @@ int main(int argc, char **argv)
     //os_mbt();
     //os_reset_mbt();
     //os_mbt();
-    //os_bitmap(1);
-    os_ls();
+    os_bitmap(1);
+    //os_ls();
 
 }
