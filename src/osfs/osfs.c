@@ -252,4 +252,73 @@ int os_exists(char* filename)
 }
 
 
+void sort_partitions()
+{
+    int* sorted = malloc(sizeof(int) * 128);
+    int count = 0;
+    for (int h = 0; h < 128; h++)
+    {
+        sorted[h] = 999;
+    } 
 
+
+    for (int i = 0; i < 128; i++)
+    {
+        int min = 9999999;
+        int id_min = 9999999;
+        int index_min = 9999999;
+        int used_i = 0;
+        for (int k = 0; k < 128; k++)
+        {
+            if (i == sorted[k])
+            {
+                //printf("id: %d\n", i);
+                used_i = 1;
+            }
+        }
+        if (find_partition(i) != 0 && used_i == 0)
+        {
+            
+            min = find_partition(i);
+            id_min = i;
+            index_min = i;
+            for (int j = 0; j < 128; j++)
+            {
+                int used_j = 0;
+                for (int z = 0; z < 128; z++)
+                {
+                    if (z != i)
+                    {
+                        if (j == sorted[z])
+                        {
+                            used_j = 1;
+                        }
+                    }
+                }
+                if (find_partition(j) != 0 && find_partition(j) < min && used_j == 0)
+                {
+                    min = find_partition(j);
+                    id_min = j;
+                    index_min = j;
+                }
+            }
+        }
+        if (min != 9999999)
+        {
+            sorted[count] = id_min;
+            // mbt[index_min].is_valid = 0; Tengo que ver una forma de marvar com
+            count++;
+        }
+    }
+    for (int l = 0; l < count; l++)
+    {
+        printf("%d: %d en el byte %ld\n", l, sorted[l], find_partition(sorted[l]));
+    }
+    free(sorted);
+}
+
+
+void os_create_partition(int id, int size)
+{
+    printf("en proceso\n");
+}
