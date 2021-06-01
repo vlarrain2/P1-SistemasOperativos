@@ -186,7 +186,7 @@ void os_mbt()
     }
     if (valids==0)
     {
-        printf("No hay particiones validas\n")
+        printf("No hay particiones validas\n");
     }
 }
 
@@ -268,7 +268,7 @@ void os_reset_mbt()
     }
 }
 
-void delete_partition(int id){
+void os_delete_partition(int id){
     FILE *file = fopen(DISK_NAME, "r+b");
     unsigned char *buffer;
     buffer = malloc(sizeof(char) * MBT_SIZE);
