@@ -1,4 +1,4 @@
-#include "osfs.h"
+#include "os_API.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -87,6 +87,10 @@ void os_bitmap(unsigned num){
 		for (int index = 0; index < BLOCK_SIZE; index++)
 			{
 				unsigned int byte = buffer[index];
+                if (byte !=0){
+                printf("byte: %u ", byte);
+                printf("byte shifted: %u\n", byte<<=1);
+                }
 				for (size_t i = 0; i < 8; i++)
 				{
 					//and con 10000000, si es 1 el valid bit es 1.
@@ -97,6 +101,7 @@ void os_bitmap(unsigned num){
 					else
 						freed++;
 					byte <<= 1;
+                    
 				}
                 ///Printeamos dos digitos en hexadecimal (enunciado).
 				printf("%02X", ((unsigned int)buffer[index]) & 0x0FF);
@@ -191,7 +196,8 @@ void os_mbt()
 }
 
 
-void os_ls(){
+void os_ls()
+{
     FILE *file = fopen(DISK_NAME, "rb");
     unsigned char *buffer;
     buffer = malloc(sizeof(char) * BLOCK_SIZE);
@@ -201,12 +207,9 @@ void os_ls(){
     fread(buffer, sizeof(char), BLOCK_SIZE, file);
     for (int i = 0; i < 64; i++) //64 es el número de entradas en un Bloque de Directorio
     {
-        long int aux = buffer[i*32];
-        aux >>= 24;
-
-        if (aux ^ (0x01))
+        if (buffer[i*32] ^ (0x00))
         {
-            for (int actual_char = 4; actual_char < 32; actual_char ++ ) //se actualiza el fileName[29] byte a byte, espero que el string mismo sepa hasta dónde es según el null terminator
+            for (int actual_char = 4; actual_char < 32; actual_char ++ )
             {
               printf("%c", buffer[i*32 + actual_char]);
             }
