@@ -267,3 +267,24 @@ void os_reset_mbt()
         }
     }
 }
+
+void delete_partition(int id){
+    FILE *file = fopen(DISK_NAME, "r+b");
+    unsigned char *buffer;
+    buffer = malloc(sizeof(char) * MBT_SIZE);
+    fseek(file, 0, SEEK_SET);
+    fread(buffer, sizeof(char), MBT_SIZE, file);
+    unsigned int id_byte = id + 128; //id entregado (7 bits) + bit de validacion (8vo bit)
+    for (int i = 0; i < 128; i++) //Recorro MBT entrada a entrada
+    {
+        if ((id_byte ^ buffer[i*8]) == 0) // si el XOR entrega 0 es porque se encontro la entrada "i" con el id = id con el bit de validacion
+        {
+            fseek(file, i*8 , SEEK_SET);
+            unsigned char id_invalido = (unsigned char) id;
+            fwrite( &id_invalido, sizeof(id_invalido), 1, file);
+            printf("Se ELIMINÓ la Partición %d \n", id);
+        }
+    }
+    fclose(file);
+    free(buffer);
+}

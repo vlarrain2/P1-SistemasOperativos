@@ -10,6 +10,4 @@ int main(int argc, char **argv)
 {
     os_mount(argv[1], atoi(argv[2]));
 
-    os_mbt();
-
 }
