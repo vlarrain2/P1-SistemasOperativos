@@ -33,7 +33,7 @@ void os_open(char* filename, char mode){
             for (int i = 0; i < 64; i++)
             {
                 long int aux = buffer[i*32];
-                aux >>= 24; //identificación de bye de validez
+                aux >>= 31*8; //identificación de bye de validez
 
                 if (aux ^ (0x01)) //si es archivo entramos
                 {
@@ -42,6 +42,7 @@ void os_open(char* filename, char mode){
                         unsigned char byte = buffer[i * 32 + actual_char];
                         entryFileName[actual_char - 4] = byte;
                     }
+                    printf("%s\n",entryFileName);
                     result = strcmp(filename, entryFileName); //ver si nombres coinciden
                     if (result == 0) //en el caso de que coincidan veo los datos del archivo
                     {
