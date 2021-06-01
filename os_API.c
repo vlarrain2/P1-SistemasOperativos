@@ -4,8 +4,8 @@
 #include <math.h>
 #include "os_API.h"
 
-char* disco = "./../simdiskformat.bin";
-int particion = 92;
+char* disco = "./../simdiskfilled.bin";
+int particion = 4;
 
 int main(int argc, char** argv)
 {
@@ -64,6 +64,7 @@ void os_open(char* filename, char mode){
             char** partition; // 1 bit paravalidez y 7 bits para identificador de particion
             char** directory_id = malloc(3 * sizeof(char*)); // 3 bytes 
             char** partition_blocks = malloc(4 * sizeof(char*)); // 4 bytes
+            int contador = 0;
             for (int i=0; i<1024; i += 8){
                 partition[0] = int_to_string(int_to_int(buffer[i]),8);
                 printf("validez: %c\n", partition[0][0]);
@@ -75,7 +76,7 @@ void os_open(char* filename, char mode){
                 }
                 printf("\n");
 
-                if (string_to_int(1,7,partition,1) == particion){
+                if (partition[0][0] == '1'){
                     // int byte_directory = int_to_int(buffer[i + 1] + (buffer[i + 1]<<8) + (buffer[i + 1]<<16));
                     // directory_id = int_to_string(byte_directory,24);
                     directory_id[0] = int_to_string(int_to_int(buffer[i + 3]),8);
@@ -95,7 +96,7 @@ void os_open(char* filename, char mode){
                     partition_blocks[1] = int_to_string(int_to_int(buffer[i + 6]),8);
                     partition_blocks[2] = int_to_string(int_to_int(buffer[i + 5]),8);
                     partition_blocks[3] = int_to_string(int_to_int(buffer[i + 4]),8);
-                    printf("partition blocks int: %d\n", string_to_int(0,7,partition_blocks,4));
+                    printf("partition blocks int: %i\n", string_to_int(0,7,partition_blocks,4));
                     // partition_blocks = int_to_string(int_to_int(buffer[i + 4]),8);
                     // strcat(partition_blocks, int_to_string(int_to_int(buffer[i + 5]),8));
                     // strcat(partition_blocks, int_to_string(int_to_int(buffer[i + 6]),8));
@@ -107,7 +108,6 @@ void os_open(char* filename, char mode){
                     }
                     printf("\n");
                     printf("\n");
-                    break;
                 }
 
                 
@@ -115,9 +115,19 @@ void os_open(char* filename, char mode){
                     // recorrer cada entrada de la MBT
                     // si la entrada esigual a la particion, guardad id absoluto y relativo, break
                 //}
+                printf("\n");
+                printf("\n");
+                contador ++;
             }
+            printf("%i\n", contador);
 
-            // fseek(fdisk, 1024 + id_absoluto + offset_en_particion);
+            fseek(fdisk, 1024 + string_to_int(0,7,directory_id,3), SEEK_SET);
+            unsigned char directory_buffer[2048];
+            fread(directory_buffer, 1, 2048, fdisk);
+            for (int i=0; i<2048; i++){
+                printf("%c",directory_buffer[i]);
+            }
+            printf("\n");
             // seleccionar los primeros 2KB (directorio)
             //recorrer el directorio en pedazos de 32B viendo los últimos 28 para el nombre de archivo
 
