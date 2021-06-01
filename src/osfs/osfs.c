@@ -321,4 +321,23 @@ void sort_partitions()
 void os_create_partition(int id, int size)
 {
     printf("en proceso\n");
+
+    // En 1er lugar hay que encontrar el espacio,
+    // se hace siguiendo la siguiente estructura
+
+    /*
+    espacio = 0
+    borde_izq = 0
+    borde_der = 0
+    iterar sobre todos las particiones:
+        si es que es valido:
+            borde_der = id_abs
+            if borde_der - borde_izq >= N:
+                printf("fino")
+            else:
+                borde_izq = id_abs + cant_bloques_particion * bloques_por_particion
+    */
+
+   // Cuando se encuentra el espacio libre,
+   // hay que iniviar iniciar la partición
 }
