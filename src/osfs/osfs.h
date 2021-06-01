@@ -15,4 +15,5 @@ int MBT_SIZE;
 void os_mount(char* diskname, int partition);
 long int find_partition(int id);
 long int find_partition_size(int id);
+long int delete_partition(int id);
 void os_ls();
