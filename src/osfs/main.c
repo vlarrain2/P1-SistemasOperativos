@@ -1,4 +1,5 @@
 #include "osfs.h"
+#include "files/files.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,7 +10,8 @@
 int main(int argc, char **argv)
 {
     os_mount(argv[1], atoi(argv[2]));
-
-    os_mbt();
+    os_open("nene.txt", 'r');
+    
+    //os_mbt();
 
 }
