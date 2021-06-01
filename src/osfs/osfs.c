@@ -175,12 +175,18 @@ int get_bitmaps_number(int partition)
 
 void os_mbt()
 {
+    int valids = 0;
     for (int i =0; i<127;i++)
     {
         if (find_partition(i)!=0)
         {
             printf("Particion Valida de id %i\n", i);
+            valids++;
         }
+    }
+    if (valids==0)
+    {
+        printf("No hay particiones validas\n")
     }
 }
 
@@ -251,5 +257,13 @@ int os_exists(char* filename)
     return(0);
 }
 
-
-
+void os_reset_mbt()
+{
+    for (int i =0; i<127;i++)
+    {
+        if (find_partition(i)!=0)
+        {
+            os_delete_partition(i);
+        }
+    }
+}

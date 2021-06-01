@@ -20,3 +20,4 @@ int os_exists(char* filename);
 void os_bitmap(unsigned num);
 int get_bitmaps_number(int partition);
 void os_mbt();
+void os_reset_mbt();
