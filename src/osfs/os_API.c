@@ -85,17 +85,17 @@ void os_bitmap(unsigned num){
 		fread(buffer, sizeof(char), BLOCK_SIZE, file);
 		for (int index = 0; index < BLOCK_SIZE; index++)
 			{
-				unsigned int byte = buffer[index];
+				unsigned int byte = buffer[index]; //1010 0000 
 				for (size_t i = 0; i < 8; i++)
 				{
 					//and con 10000000, si es 1 el valid bit es 1.
-                    unsigned int bit = byte & 0x080;
-					bit >>= 7;
+                    unsigned int bit = byte & 0x080; //1101 1111
+					bit >>= 7;//0000 0001
 					if (bit == 1)
 						taken++;
 					else
 						freed++;
-					byte <<= 1;
+					byte <<= 1;//0100 0000 y vuelve al & con 1000 0000
                     
 				}
                 ///Printeamos dos digitos en hexadecimal (enunciado).
