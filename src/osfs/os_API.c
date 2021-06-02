@@ -420,7 +420,7 @@ int find_space_new_partition(int size)
 void os_create_partition(int id, int size)
 {
     //printf("en proceso\n");
-    if (!find_partition(id))
+    if (find_partition(id))
     {
         printf("id ocupado\n");
         return;

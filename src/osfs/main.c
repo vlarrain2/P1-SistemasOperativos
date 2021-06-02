@@ -14,9 +14,10 @@ int main(int argc, char **argv)
     //os_mbt();
     //os_bitmap(1);
     //os_ls();
-    //os_create_partition(6, 16384);
-    //printf("Posición: %ld\n", find_partition(6));
-    //printf("Size: %ld\n", find_partition_size(6));
-    //os_mbt();
-
+    os_create_partition(6, 16384);
+    printf("Posición: %ld\n", find_partition(6));
+    printf("Size: %ld\n", find_partition_size(6));
+    os_mbt();
+    os_create_partition(6,777777);
+    os_mbt();
 }
