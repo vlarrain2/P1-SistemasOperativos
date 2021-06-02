@@ -102,11 +102,6 @@ osFile* os_open(char* filename, char mode){
             printf("YA EXISTE ARCHIVO\n");
         }
         else{
-            //creamos osfile y asignamos el nombre
-            osFile* file = malloc(sizeof(osFile));
-            file -> name = filename;
-            file -> mode = mode;
-            file -> bytes_processed = 0;
 
             //buscamos id_absoluto de la particion y su tamaño
             long int id_absoluto = find_partition(CURRENT_PARTITION);
@@ -139,7 +134,7 @@ osFile* os_open(char* filename, char mode){
                     int nofbitmaps = get_bitmaps_number(CURRENT_PARTITION);
                     for (int j=0; j<nofbitmaps; j++)
                     {
-                        int bitMapPointer = find_partition(CURRENT_PARTITION)*BLOCK_SIZE + MBT_SIZE + (j+1)*BLOCK_SIZE;
+                        int bitMapPointer = id_absoluto*BLOCK_SIZE + MBT_SIZE + (j+1)*BLOCK_SIZE;
                         buffer = malloc(sizeof(char) * BLOCK_SIZE);
                         fseek(disk, bitMapPointer, SEEK_SET);
                         fread(buffer, sizeof(char), BLOCK_SIZE, disk);
@@ -205,6 +200,8 @@ osFile* os_open(char* filename, char mode){
                     file -> location = MBT_SIZE + id_absoluto*BLOCK_SIZE + id_relativo*BLOCK_SIZE;
                     file -> size = 0;
                     file -> directory_entry =  MBT_SIZE + BLOCK_SIZE*id_absoluto + 32*i;
+                    file -> mode = mode;
+                    file -> bytes_processed = 0;
                     return file;
                 }
             }
@@ -218,6 +215,7 @@ int os_read(osFile* file_desc, void* buffer, int nbytes){
     }
 
     else{
+        unsigned char* buffer2 = buffer;
         long int id_absoluto = find_partition(CURRENT_PARTITION);
         // tamaño bytes - bytes leidos son los que quedan
         int result = file_desc->size - file_desc->bytes_processed;
@@ -274,6 +272,9 @@ int os_read(osFile* file_desc, void* buffer, int nbytes){
             unsigned char *buffer_read = malloc(sizeof(char) * result);
             
             fread(buffer_read, 1, bytes_por_leer, disk);
+            fseek(disk, 0, SEEK_SET);
+            fseek(disk, MBT_SIZE + id_absoluto*BLOCK_SIZE + id_bloque*BLOCK_SIZE + bytes_in_block, SEEK_SET);
+            fread(buffer2 + bytes_read, 1, bytes_por_leer, disk);
             for (int actual_char = 0; actual_char < bytes_por_leer; actual_char ++)
             {
                 unsigned char byte = buffer_read[actual_char];
@@ -289,6 +290,7 @@ int os_read(osFile* file_desc, void* buffer, int nbytes){
         }
         printf("lectura: %s\n", read_reasult);
         file_desc->bytes_processed += result;
+        fclose(disk);
         //sumo los bytes procesados, para que el proximo os_read inicie en donde quedé
         return result;
     }
@@ -300,8 +302,98 @@ int os_write(osFile* file_desc, void* buffer, int nbytes){
         printf("ERROR: NO HAS ABIERTO EL ARCHIVO PARA ESCRIBIRLO\n");
         return 0;
     }
+    else
+    {
+        long int id_absoluto = find_partition(CURRENT_PARTITION);
+        FILE *disk = fopen(DISK_NAME, "r+b");
+        int blocks_needed = (int)(nbytes / BLOCK_SIZE) + 1;
+        long int bytes_writen = 0;
+        long int free_block;
+        int bytes_per_block;
+        for (int i = 0; i < blocks_needed; i++)
+        {
+            free_block = get_first_free_block();
+            if (free_block < 0)
+            {
+                break;
+            }
+            printf("free block: %li\n", free_block);
+            fseek(disk, 0, SEEK_SET);
+            fseek(disk, file_desc -> location + 5 + i, SEEK_SET);
+            fwrite(&free_block, 1, 3, disk);
+
+            fseek(disk, 0, SEEK_SET);
+            fseek(disk, file_desc -> location + 5 + i, SEEK_SET);
+            unsigned char *buffer_prueba = malloc(3);
+            fread(buffer_prueba, 1, 3, disk);
+            for (int byte = 0; byte < 3; byte++)
+            {
+                printf("free block[%i]: %ui\n", byte, buffer_prueba[byte]);
+            }
+
+            fseek(disk, 0, SEEK_SET);
+            fseek(disk, MBT_SIZE + id_absoluto*BLOCK_SIZE + free_block*BLOCK_SIZE, SEEK_SET);
+            bytes_per_block = (nbytes - bytes_writen >= BLOCK_SIZE) ? BLOCK_SIZE : nbytes - bytes_writen;
+            fwrite((unsigned char*)buffer, 1, bytes_per_block, disk);
+            printf("BUFFER: %s\n", (unsigned char*)buffer);
+            bytes_writen += bytes_per_block;
+        }
+        fseek(disk, 0, SEEK_SET);
+        fseek(disk, file_desc -> location, SEEK_SET);
+        fwrite(&bytes_writen, 5, 1, disk);
+        fclose(disk);
+        return bytes_writen;
+    }
 };
-int os_close(osFile* file_desc); //cerrar disco y hacer free (?)
+
+long int get_first_free_block()
+{
+    long int id_absoluto = find_partition(CURRENT_PARTITION);
+    int nofbitmaps = get_bitmaps_number(CURRENT_PARTITION);
+    FILE *disk = fopen(DISK_NAME, "r+b");
+    for (int j=0; j<nofbitmaps; j++)
+    {
+        int bitMapPointer = id_absoluto*BLOCK_SIZE + MBT_SIZE + (j+1)*BLOCK_SIZE;
+        unsigned char* buffer = malloc(sizeof(char) * BLOCK_SIZE);
+        fseek(disk, bitMapPointer, SEEK_SET);
+        fread(buffer, sizeof(char), BLOCK_SIZE, disk);
+        printf("Bitmap numero %i de la Particion %i\n", j+1, CURRENT_PARTITION);
+        for (int index = 0; index < BLOCK_SIZE; index++)
+        {
+            unsigned int byte = buffer[index];
+            for (size_t k = 0; k < 8; k++)
+            {
+                unsigned int bit = byte & 0x080;
+                bit >>= 7;
+                if (bit == 0) //encontramos el bit que es igual a cero y lo cambiaremos a 1.
+                {
+                    long int id_relativo = j * BLOCK_SIZE * 8 + index*8 + k;
+                    fseek(disk, 0, SEEK_SET);
+                    fseek(disk, MBT_SIZE + id_absoluto*BLOCK_SIZE + BLOCK_SIZE + BLOCK_SIZE*j + index, SEEK_SET);
+                    int pos = 1;
+                    printf("pos sin shift: %i\n", pos);
+                    pos <<= 7 - k;
+                    printf("pos: %i\n", pos);
+                    printf("bitmap original: %i\n", buffer[index]);
+                    unsigned int new_byte = buffer[index] | pos;
+                    printf("bitmap modificado: %i\n", new_byte);
+                    fwrite(&new_byte, 1, 1, disk);
+                    return id_relativo;
+                }
+                byte <<= 1;
+            }
+        }
+    }
+    fclose(disk);
+    return -1;
+}
+
+
+int os_close(osFile* file_desc) //cerrar disco y hacer free (?)
+{
+    free(file_desc);
+    return 0;
+}
 
 int os_rm(char* filename) //cambiar el byte de validez a 0x00 en bloque directorio
 {

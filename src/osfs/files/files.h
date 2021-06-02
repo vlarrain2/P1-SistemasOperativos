@@ -16,3 +16,5 @@ int os_close(osFile* file_desc);
 int os_rm(char* filename);
 
 int os_exists(char* filename);
+
+long int get_first_free_block();
