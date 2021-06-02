@@ -68,6 +68,28 @@ long int find_partition_size(int id)
     return 0;
 }
 
+long int find_invalid_partition(){
+    FILE *file = fopen(DISK_NAME, "rb");
+    unsigned char *buffer;
+    buffer = malloc(sizeof(char) * MBT_SIZE);
+    fseek(file, 0, SEEK_SET);
+    fread(buffer, sizeof(char), MBT_SIZE, file);
+    unsigned char entry;
+    //unsigned int id_byte = id + 128; //id entregado (7 bits) + bit de validacion (8vo bit)
+    for (int i = 0; i < 128; i++) //Recorro MBT entrada a entrada
+    {
+        entry = buffer[i*8];
+        entry >>= 7;
+        if (entry == 0) // si el and entrega 1111...11
+        {
+            return i;
+        }
+    }
+    fclose(file);
+    free(buffer);
+    return -1;
+}
+
 
 void os_bitmap(unsigned num){
     FILE *file;
@@ -289,4 +311,207 @@ void os_delete_partition(int id){
     }
     fclose(file);
     free(buffer);
+}
+
+int find_space_new_partition(int size)
+{
+    int* sorted = malloc(sizeof(int) * 128);
+    int count = 0;
+    for (int h = 0; h < 128; h++)
+    {
+        sorted[h] = 999;
+    } 
+
+
+    for (int i = 0; i < 128; i++)
+    {
+        int min = 9999999;
+        int id_min = 9999999;
+        int index_min = 9999999;
+        int used_i = 0;
+        for (int k = 0; k < 128; k++)
+        {
+            if (i == sorted[k])
+            {
+                //printf("id: %d\n", i);
+                used_i = 1;
+            }
+        }
+        if (find_partition(i) != 0 && used_i == 0)
+        {
+            
+            min = find_partition(i);
+            id_min = i;
+            index_min = i;
+            for (int j = 0; j < 128; j++)
+            {
+                int used_j = 0;
+                for (int z = 0; z < 128; z++)
+                {
+                    if (z != i)
+                    {
+                        if (j == sorted[z])
+                        {
+                            used_j = 1;
+                        }
+                    }
+                }
+                if (find_partition(j) != 0 && find_partition(j) < min && used_j == 0)
+                {
+                    min = find_partition(j);
+                    id_min = j;
+                    index_min = j;
+                }
+            }
+        }
+        if (min != 9999999)
+        {
+            sorted[count] = id_min;
+            // mbt[index_min].is_valid = 0; Tengo que ver una forma de marvar com
+            count++;
+        }
+    }
+    /*
+    for (int l = 0; l < count; l++)
+    {
+        printf("%d: %d en el byte %ld\n", l, sorted[l], find_partition(sorted[l]));
+    }
+    */
+
+    int space = 0;
+    int left_bound = 0;
+    int right_bound = 0;
+    for (int i = 0; i < count; i++)
+    {
+        if (find_partition(sorted[i]) != 0)
+        {
+            right_bound = find_partition(sorted[i]);
+            if (right_bound - left_bound >= size)
+            {
+                // printf("Espacio libre\n");
+                space = right_bound - left_bound;
+                break;
+            }
+            else
+            {
+                left_bound = find_partition(sorted[i]) + find_partition_size(sorted[i]);
+            }
+        }
+        if (space != 0) break;
+    }
+    if (space == 0)
+    {
+        if (4294968320 - left_bound >= size)  // 4294968320 es el borde máximo a la derecha (en Bytes)
+        {
+            //printf("ultima parte %d\n",left_bound);
+            return(left_bound);
+        }
+        //printf("No cabe la partición\n");
+        return(0);
+    }
+    //printf("entremedio %d\n",left_bound);
+    return(left_bound);
+
+
+    free(sorted);
+}
+
+
+void os_create_partition(int id, int size)
+{
+    //printf("en proceso\n");
+    if (!find_partition(id))
+    {
+        printf("id ocupado\n");
+        return;
+    }
+    int relative_id = find_space_new_partition(size);
+    if (!relative_id)
+    {
+        printf("No cabe la partición nueva\n");
+        return;
+    }
+    //printf("relative id: %d\n", relative_id);
+    int found = find_invalid_partition();
+    if (found == -1)
+    {
+        printf("No hay entradas disponibles en la MBT\n");
+        return;
+    }
+
+    FILE* file = fopen(DISK_NAME, "r+b");
+    unsigned char byte_escritura = (unsigned char) id + 128;
+
+    unsigned char* buffer = malloc(sizeof(char)*8);
+    buffer[0] = byte_escritura;
+
+    int aux_primer_byte = relative_id;
+    aux_primer_byte >>=16;
+    buffer[1] = (unsigned char) aux_primer_byte;
+
+    int aux_segundo_byte = relative_id;
+    aux_segundo_byte >>=8;
+    buffer[2] = (unsigned char) aux_segundo_byte;
+    
+    buffer[3] = (unsigned char) relative_id;
+
+    //printf("buffer 0 %d\n", buffer[0]);
+    //printf("buffer 1 %d\n", buffer[1]);
+    //printf("buffer 2 %d\n", buffer[2]);
+    //printf("buffer 3 %d\n", buffer[3]);
+
+    int relative_nuevo =  ((int) buffer[3]) + ( ((int) buffer[2]) <<8) + (((int) buffer[1]) <<16);
+    //printf("relative nuevo %d\n", relative_nuevo);
+
+    /*printf("%d\n", buffer[0]);
+    printf("%d\n", buffer[1]);
+    printf("%d\n", buffer[2]);
+    printf("%d\n", buffer[3]);
+    */
+    int buffer1 = (int) buffer[1];
+    int buffer2 = (int) buffer[2];
+    int buffer3 = (int) buffer[3];
+    
+
+    aux_primer_byte = size;
+    aux_primer_byte >>= 24;
+    buffer[4] = (unsigned char) aux_primer_byte;
+
+    aux_segundo_byte = size;
+    aux_segundo_byte >>= 16;
+    buffer[5] = (unsigned char) aux_segundo_byte;
+
+    int aux_tercer_byte = size;
+    aux_tercer_byte >>= 8;
+    buffer[6] = (unsigned char) aux_tercer_byte;
+
+    buffer[7] = (unsigned char) size;
+
+    int buffer4 = (int) buffer[4];
+    int buffer5 = (int) buffer[5];
+    int buffer6 = (int) buffer[6];
+    int buffer7 = (int) buffer[7];
+    
+
+    fseek(file, found*8, SEEK_SET);
+    fwrite(&byte_escritura, sizeof(byte_escritura), 1, file);
+    fseek(file, 0, SEEK_CUR);
+    fwrite(&buffer1, sizeof(char), 1, file);
+    fseek(file, 0, SEEK_CUR);
+    fwrite(&buffer2, sizeof(char), 1, file);
+    fseek(file, 0, SEEK_CUR);
+    fwrite(&buffer3, sizeof(char), 1, file);
+    fseek(file, 0, SEEK_CUR);
+    fwrite(&buffer4, sizeof(char), 1, file);
+    fseek(file, 0, SEEK_CUR);
+    fwrite(&buffer5, sizeof(char), 1, file);
+    fseek(file, 0, SEEK_CUR);
+    fwrite(&buffer6, sizeof(char), 1, file);
+    fseek(file, 0, SEEK_CUR);
+    fwrite(&buffer7, sizeof(char), 1, file);
+    fseek(file, 0, SEEK_CUR);
+    
+    fclose(file);
+    free(buffer);
+
 }
