@@ -118,7 +118,7 @@ osFile* os_open(char* filename, char mode){
                     fseek(disk, 0, SEEK_SET);
                     fseek(disk, MBT_SIZE + BLOCK_SIZE*id_absoluto + i*32, SEEK_SET);
                     unsigned char validez = 0x01;
-                    fwrite(validez, 1, 1, disk);
+                    fwrite(&validez, 1, 1, disk);
                     fseek(disk, 0, SEEK_SET);
                     fseek(disk, MBT_SIZE + BLOCK_SIZE*id_absoluto + BLOCK_SIZE, SEEK_SET);
                     long int id_relativo = 0;
@@ -141,6 +141,16 @@ osFile* os_open(char* filename, char mode){
                                 if (bit == 0)
                                 {
                                     id_relativo = j * BLOCK_SIZE * 8 + index*8 + k;
+                                    fseek(disk, 0, SEEK_SET);
+                                    fseek(disk, MBT_SIZE + id_absoluto*BLOCK_SIZE + BLOCK_SIZE + BLOCK_SIZE*j + index, SEEK_SET);
+                                    int pos = 1;
+                                    printf("pos sin shift: %i\n", pos);
+                                    pos <<= 7 - k;
+                                    printf("pos: %i\n", pos);
+                                    printf("bitmap original: %i\n", buffer[index]);
+                                    unsigned int new_byte = buffer[index] | pos;
+                                    printf("bitmap modificado: %i\n", new_byte);
+                                    fwrite(&new_byte, 1, 1, disk);
                                     break;
                                 }
                                 byte <<= 1;
@@ -159,8 +169,23 @@ osFile* os_open(char* filename, char mode){
                     printf("partition size: %li\n", size_partition);
                     fseek(disk, 0, SEEK_SET);
                     fseek(disk, MBT_SIZE + BLOCK_SIZE*id_absoluto + i*32 + 1, SEEK_SET);
-                    fwrite(id_relativo, 3, 1, disk);
-                    break;
+                    fwrite(&id_relativo, 3, 1, disk);
+                    fseek(disk, 0, SEEK_SET);
+                    fseek(disk, MBT_SIZE + BLOCK_SIZE*id_absoluto + i*32 + 4, SEEK_SET);
+                    fwrite(filename, 1, strlen(filename), disk);
+                    char zero = 0x00;
+                    for (int j = 0; j < 28 - strlen(filename); j++)
+                    {
+                        fseek(disk, 0, SEEK_SET);
+                        fseek(disk, MBT_SIZE + BLOCK_SIZE*id_absoluto + i*32 + 4 + strlen(filename) + j, SEEK_SET);
+                        fwrite(&zero, 1, 1, disk);
+                    }
+                    fclose(disk);
+                    osFile* file = malloc(sizeof(osFile));
+                    file -> name = filename;
+                    file -> location = MBT_SIZE + id_absoluto*BLOCK_SIZE + id_relativo*BLOCK_SIZE;
+                    file -> size = 0;
+                    return file;
                 }
             }
         }
