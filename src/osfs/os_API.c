@@ -82,6 +82,8 @@ long int find_invalid_partition(){
         entry >>= 7;
         if (entry == 0) // si el and entrega 1111...11
         {
+            free(buffer);
+            fclose(file);
             return i;
         }
     }
@@ -404,16 +406,19 @@ int find_space_new_partition(int size)
         if (4294968320 - left_bound >= size)  // 4294968320 es el borde máximo a la derecha (en Bytes)
         {
             //printf("ultima parte %d\n",left_bound);
+            free(sorted);
             return(left_bound);
         }
         //printf("No cabe la partición\n");
+        free(sorted);
         return(0);
     }
     //printf("entremedio %d\n",left_bound);
+    free(sorted);
     return(left_bound);
 
 
-    free(sorted);
+    
 }
 
 
