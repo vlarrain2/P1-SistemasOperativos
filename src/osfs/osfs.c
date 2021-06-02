@@ -30,11 +30,13 @@ long int find_partition(int id){
                 bytes_id_absoluto <<= 8; // 1111 1111 0000 0000
                 bytes_id_absoluto += buffer[i*8 + 1 + j]; // 1111 1111 1111 1111
             }
+            printf("Se encontró la Partición %d \n", id);
             return bytes_id_absoluto;
         }
     }
     fclose(file);
     free(buffer);
+    printf("No se encontró ninguna Partición válida con ese id\n");
     return 0;
 }
 
@@ -48,13 +50,13 @@ long int find_partition_size(int id)
     unsigned int id_byte = id + 128; //id entregado (7 bits) + bit de validacion (8vo bit)
     for (int i = 0; i < 128; i++) //Recorro MBT entrada a entrada
     {
-        if ((id_byte ^ buffer[i*8]) == 0) // si el and entrega 1111...11
+        if ((id_byte ^ buffer[i*8]) == 0)
         {
-            long int bytes_id_absoluto = buffer[i*8 + 4]; // 1111 1111
+            long int bytes_id_absoluto = buffer[i*8 + 4];
             for (int j = 1; j < 4; j++)
             {
-                bytes_id_absoluto <<= 8; // 1111 1111 0000 0000
-                bytes_id_absoluto += buffer[i*8 + 4 + j]; // 1111 1111 1111 1111
+                bytes_id_absoluto <<= 8;
+                bytes_id_absoluto += buffer[i*8 + 4 + j];
             }
             return bytes_id_absoluto;
         }
@@ -185,7 +187,8 @@ void os_mbt()
 }
 
 
-void os_ls(){
+void os_ls()
+{
     FILE *file = fopen(DISK_NAME, "rb");
     unsigned char *buffer;
     buffer = malloc(sizeof(char) * BLOCK_SIZE);
@@ -195,12 +198,9 @@ void os_ls(){
     fread(buffer, sizeof(char), BLOCK_SIZE, file);
     for (int i = 0; i < 64; i++) //64 es el número de entradas en un Bloque de Directorio
     {
-        long int aux = buffer[i*32];
-        aux >>= 24;
-
-        if (aux ^ (0x01))
+        if (buffer[i*32] ^ (0x00))
         {
-            for (int actual_char = 4; actual_char < 32; actual_char ++ ) //se actualiza el fileName[29] byte a byte, espero que el string mismo sepa hasta dónde es según el null terminator
+            for (int actual_char = 4; actual_char < 32; actual_char ++ )
             {
               printf("%c", buffer[i*32 + actual_char]);
             }
@@ -229,7 +229,7 @@ int os_exists(char* filename)
         long int aux = buffer[i*32];
         aux >>= 24;
 
-        if (aux ^ (0x01))
+        if (buffer[i*32] ^ (0x00))
         {
             for (int actual_char = 4; actual_char < 32; actual_char ++)
             {

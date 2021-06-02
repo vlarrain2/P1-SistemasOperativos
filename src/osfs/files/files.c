@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
-void os_open(char* filename, char mode){
+osFile* os_open(char* filename, char mode){
     if (mode == 'r'){
         if (os_exists(filename)){
             //creamos osfile y asignamos el nombre
@@ -23,6 +23,7 @@ void os_open(char* filename, char mode){
             buffer = malloc(sizeof(char) * BLOCK_SIZE);
 
             //recibimos MBT
+            fseek(disk, 0, SEEK_SET);
             fseek(disk, 1024 + BLOCK_SIZE * id_absoluto, SEEK_SET);
             fread(buffer, sizeof(char), BLOCK_SIZE, disk);
 
@@ -32,29 +33,38 @@ void os_open(char* filename, char mode){
             int result;
             for (int i = 0; i < 64; i++)
             {
-                long int aux = buffer[i*32];
-                aux >>= 31*8; //identificación de bye de validez
+                printf("entrada %i\n", i);
+                /*long int aux = buffer[i*32];
+                printf("aux sin shift: %li\n", aux);
+                aux >>= 31*8; //identificación de byte de validez
+                printf("aux: %li\n", aux);*/
+                if (buffer[i*32] ^ (0x00)) //si es archivo entramos
 
-                if (aux ^ (0x01)) //si es archivo entramos
                 {
                     for (int actual_char = 4; actual_char < 32; actual_char ++)
                     {
                         unsigned char byte = buffer[i * 32 + actual_char];
                         entryFileName[actual_char - 4] = byte;
                     }
+                    printf("Nombre:\n");
                     printf("%s\n",entryFileName);
                     result = strcmp(filename, entryFileName); //ver si nombres coinciden
                     if (result == 0) //en el caso de que coincidan veo los datos del archivo
-                    {
+                    {   
+
                         long int bytes_id_relativo = buffer[i*32 + 1]; //obtencion de id relativo
                         for (int j = 1; j < 3; j++)
                         {
                             bytes_id_relativo <<= 8;
                             bytes_id_relativo += buffer[i*32 + 1 + j];
                         }
-
+                        
+                        printf("id relativo: %li\n", bytes_id_relativo);
+                        bytes_id_relativo = 25841;
                         //la ubicacion del bloque indice es en 1024 + id absoluto + offset
                         file -> location = MBT_SIZE + BLOCK_SIZE*id_absoluto + BLOCK_SIZE*bytes_id_relativo;
+
+                        printf("location: %li\n", file -> location);
                         
                         unsigned char *buffer_index;
                         buffer_index = malloc(sizeof(char) * BLOCK_SIZE);
@@ -64,46 +74,23 @@ void os_open(char* filename, char mode){
                         fread(buffer_index, sizeof(char), BLOCK_SIZE, disk);
 
                         long int bytes_file_size = buffer_index[0];
+
                         for (int j = 1; j < 5; j++)
                         {
                             bytes_file_size <<= 8;
                             bytes_file_size += buffer_index[j];
                         }
                         printf("\nsize: %li\n\n", bytes_file_size);
-
-                        //fclose(file);
-                        //free(buffer);
-                        printf("El archivo %s está en la partición \n\n", entryFileName);
-                        //return(1);
+                        file -> size = bytes_file_size;
+                        break;
                     }
-                }    
+                }  
             }
-            // for (int i = 0; i < 64; i++) //Recorro MBT entrada a entrada
-            // {
-            //     long int bytes_directorio = buffer[i*32];
-            //     for (int j = 1; j < 32; j++)
-            //     {
-            //         bytes_directorio <<= 8; // 1111 1111 0000 0000
-            //         bytes_directorio += buffer[i*32 + j]; // 1111 1111 1111 1111
-            //     }
-            //     printf("%li\n",bytes_directorio);
-            //     // if ((CURRENT_PARTITION ^ buffer[i*8]) == 0) // si el and entrega 1111...11
-            //     // {
-            //     //     long int bytes_id_absoluto = buffer[i*8 + 1]; // 1111 1111
-            //     //     for (int j = 1; j < 3; j++)
-            //     //     {
-            //     //         bytes_id_absoluto <<= 8; // 1111 1111 0000 0000
-            //     //         bytes_id_absoluto += buffer[i*8 + 1 + j]; // 1111 1111 1111 1111
-            //     //     }
-            //     //     return bytes_id_absoluto;
-            //     // }
-            // } //busca lugar libre para el archivo
-
             fclose(disk);
-            
+            return file;
         }
         else{
-            printf("NO EXISTE ARCHIVO");
+            printf("NO EXISTE ARCHIVO\n");
         }
 
     }
