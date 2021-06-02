@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "osfs.h": "c",
+        "stdio.h": "c"
+    }
+}

@@ -30,6 +30,7 @@ long int find_partition(int id){
                 bytes_id_absoluto <<= 8; // 1111 1111 0000 0000
                 bytes_id_absoluto += buffer[i*8 + 1 + j]; // 1111 1111 1111 1111
             }
+            
             return bytes_id_absoluto;
         }
     }
@@ -56,12 +57,36 @@ long int find_partition_size(int id)
                 bytes_id_absoluto <<= 8; // 1111 1111 0000 0000
                 bytes_id_absoluto += buffer[i*8 + 4 + j]; // 1111 1111 1111 1111
             }
+            
             return bytes_id_absoluto;
         }
     }
     fclose(file);
     free(buffer);
     return 0;
+}
+
+
+long int find_invalid_partition(){
+    FILE *file = fopen(DISK_NAME, "rb");
+    unsigned char *buffer;
+    buffer = malloc(sizeof(char) * MBT_SIZE);
+    fseek(file, 0, SEEK_SET);
+    fread(buffer, sizeof(char), MBT_SIZE, file);
+    unsigned char entry;
+    //unsigned int id_byte = id + 128; //id entregado (7 bits) + bit de validacion (8vo bit)
+    for (int i = 0; i < 128; i++) //Recorro MBT entrada a entrada
+    {
+        entry = buffer[i*8];
+        entry >>= 7;
+        if (entry == 0) // si el and entrega 1111...11
+        {
+            return i;
+        }
+    }
+    fclose(file);
+    free(buffer);
+    return -1;
 }
 
 
@@ -195,10 +220,7 @@ void os_ls(){
     fread(buffer, sizeof(char), BLOCK_SIZE, file);
     for (int i = 0; i < 64; i++) //64 es el número de entradas en un Bloque de Directorio
     {
-        long int aux = buffer[i*32];
-        aux >>= 24;
-
-        if (aux ^ (0x01))
+        if (buffer[i*32] ^ (0x00))
         {
             for (int actual_char = 4; actual_char < 32; actual_char ++ ) //se actualiza el fileName[29] byte a byte, espero que el string mismo sepa hasta dónde es según el null terminator
             {
@@ -226,10 +248,7 @@ int os_exists(char* filename)
     fread(buffer, sizeof(char), BLOCK_SIZE, file);
     for (int i = 0; i < 64; i++)
     {
-        long int aux = buffer[i*32];
-        aux >>= 24;
-
-        if (aux ^ (0x01))
+        if (buffer[i*32] ^ (0x00))
         {
             for (int actual_char = 4; actual_char < 32; actual_char ++)
             {
@@ -252,7 +271,7 @@ int os_exists(char* filename)
 }
 
 
-void sort_partitions()
+int find_space_new_partition(int size)
 {
     int* sorted = malloc(sizeof(int) * 128);
     int count = 0;
@@ -314,6 +333,42 @@ void sort_partitions()
     {
         printf("%d: %d en el byte %ld\n", l, sorted[l], find_partition(sorted[l]));
     }
+
+    int space = 0;
+    int left_bound = 0;
+    int right_bound = 0;
+    for (int i = 0; i < count; i++)
+    {
+        if (find_partition(sorted[i]) != 0)
+        {
+            right_bound = find_partition(sorted[i]);
+            if (right_bound - left_bound >= size)
+            {
+                // printf("Espacio libre\n");
+                space = right_bound - left_bound;
+                break;
+            }
+            else
+            {
+                left_bound = find_partition(sorted[i]) + find_partition_size(sorted[i]);
+            }
+        }
+        if (space != 0) break;
+    }
+    if (space == 0)
+    {
+        if (4294968320 - left_bound >= size)  // 4294968320 es el borde máximo a la derecha (en Bytes)
+        {
+            printf("ultima parte %d\n",left_bound);
+            return(left_bound);
+        }
+        printf("No cabe la partición\n");
+        return(0);
+    }
+    printf("entremedio %d\n",left_bound);
+    return(left_bound);
+
+
     free(sorted);
 }
 
@@ -321,6 +376,56 @@ void sort_partitions()
 void os_create_partition(int id, int size)
 {
     printf("en proceso\n");
+    int relative_id = find_space_new_partition(size);
+    if (!relative_id)
+    {
+        printf("No cabe la partición nueva\n");
+        return;
+    }
+    printf("relative id: %d\n", relative_id);
+    int found = find_invalid_partition();
+    if (found == -1)
+    {
+        printf("No se puede\n");
+        return;
+    }
+
+    FILE* file = fopen(DISK_NAME, "r+b");
+    unsigned char byte_escritura = (unsigned char) id + 128;
+
+    unsigned char buffer[4];
+    buffer[0] = byte_escritura;
+
+    int aux_primer_byte = relative_id;
+    aux_primer_byte >>=16;
+    buffer[1] = (unsigned char) aux_primer_byte;
+
+    int aux_segundo_byte = relative_id;
+    aux_segundo_byte >>=8;
+    buffer[2] = (unsigned char) aux_primer_byte;
+
+    buffer[3] = (unsigned char) relative_id;
+
+    /*printf("%d\n", buffer[0]);
+    printf("%d\n", buffer[1]);
+    printf("%d\n", buffer[2]);
+    printf("%d\n", buffer[3]);
+    */
+
+    fseek(file, found*8, SEEK_SET);
+    fwrite(&byte_escritura, sizeof(byte_escritura), 1, file);
+    fseek(file, 1, SEEK_CUR);
+    fwrite(&buffer[1], sizeof(buffer[1]), 1, file);
+    fseek(file, 1, SEEK_CUR);
+    fwrite(&buffer[2], sizeof(buffer[2]), 1, file);
+    fseek(file, 1, SEEK_CUR);
+    fwrite(&buffer[3], sizeof(buffer[3]), 1, file);
+    fseek(file, 3, SEEK_CUR);
+    fwrite(&size, sizeof(char), 4, file);
+    fclose(file);
+    printf("Escrito\n");
+
+
 
     // En 1er lugar hay que encontrar el espacio,
     // se hace siguiendo la siguiente estructura
@@ -337,6 +442,13 @@ void os_create_partition(int id, int size)
             else:
                 borde_izq = id_abs + cant_bloques_particion * bloques_por_particion
     */
+
+    
+
+
+
+
+
 
    // Cuando se encuentra el espacio libre,
    // hay que iniviar iniciar la partición
