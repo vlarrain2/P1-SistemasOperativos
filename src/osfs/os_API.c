@@ -30,6 +30,8 @@ long int find_partition(int id){
                 bytes_id_absoluto <<= 8; // 1111 1111 0000 0000
                 bytes_id_absoluto += buffer[i*8 + 1 + j]; // 1111 1111 1111 1111
             }
+            fclose(file);
+            free(buffer);
             return bytes_id_absoluto;
         }
     }
@@ -56,6 +58,8 @@ long int find_partition_size(int id)
                 bytes_id_absoluto <<= 8; // 1111 1111 0000 0000
                 bytes_id_absoluto += buffer[i*8 + 4 + j]; // 1111 1111 1111 1111
             }
+            fclose(file);
+            free(buffer);
             return bytes_id_absoluto;
         }
     }
@@ -113,7 +117,7 @@ void os_bitmap(unsigned num){
 			printf("Bloques Ocupados: %i\n", taken);
 			printf("Bloques Libres: %i\n", freed);
 			printf("Total de Bloques: %i\n", freed + taken);
-        free(buffer);
+            free(buffer);
     }
     else if (num == 0)
     {
@@ -154,7 +158,7 @@ void os_bitmap(unsigned num){
 			printf("Bloques Ocupados: %i\n", taken);
 			printf("Bloques Libres: %i\n", freed);
 			printf("Total de Bloques: %i\n", freed + taken);
-        free(buffer);
+            free(buffer);
         } 
     }
     fclose(file);
