@@ -60,7 +60,6 @@ osFile* os_open(char* filename, char mode){
                         }
                         
                         printf("id relativo: %li\n", bytes_id_relativo);
-                        bytes_id_relativo = 25841;
                         //la ubicacion del bloque indice es en 1024 + id absoluto + offset
                         file -> location = MBT_SIZE + BLOCK_SIZE*id_absoluto + BLOCK_SIZE*bytes_id_relativo;
 
@@ -82,6 +81,7 @@ osFile* os_open(char* filename, char mode){
                         }
                         printf("\nsize: %li\n\n", bytes_file_size);
                         file -> size = bytes_file_size;
+                        file -> directory_entry =  MBT_SIZE + BLOCK_SIZE*id_absoluto + 32*i;
                         break;
                     }
                 }  
@@ -185,15 +185,83 @@ osFile* os_open(char* filename, char mode){
                     file -> name = filename;
                     file -> location = MBT_SIZE + id_absoluto*BLOCK_SIZE + id_relativo*BLOCK_SIZE;
                     file -> size = 0;
+                    file -> directory_entry =  MBT_SIZE + BLOCK_SIZE*id_absoluto + 32*i;
                     return file;
                 }
             }
         }
     }
 };
+
 int os_read(osFile* file_desc, void* buffer, int nbytes);
+
+
 int os_write(osFile* file_desc, void* buffer, int nbytes);
 int os_close(osFile* file_desc); //cerrar disco y hacer free (?)
-int os_rm(char* filename); //cambiar el byte de validez a 0x00 en bloque directorio
 
-int os_exists(char* filename);
+int os_rm(char* filename) //cambiar el byte de validez a 0x00 en bloque directorio
+{
+    if (os_exists(filename))
+    {
+        long int id_absoluto = find_partition(CURRENT_PARTITION);
+        osFile* file = os_open(filename, 'r');
+        FILE *disk = fopen(DISK_NAME, "r+b");
+        int blocks = file -> size / BLOCK_SIZE;
+        unsigned char *buffer;
+        buffer = malloc(BLOCK_SIZE - 5);
+        fseek(disk, 0, SEEK_SET);
+        fseek(disk, file -> location + 5, SEEK_SET);
+        fread(buffer, 1, BLOCK_SIZE - 5, disk);
+        printf("blocks: %i\n", blocks);
+
+
+        for (int i = 0; i < blocks; i++)
+        {
+            long int id_bloque = buffer[i*3]; // 1111 1111
+            for (int j = 1; j < 3; j++)
+            {
+                id_bloque <<= 8; // 1111 1111 0000 0000
+                id_bloque += buffer[i*3 + j]; // 1111 1111 1111 1111
+            }
+            printf("id bloque: %li\n", id_bloque);
+
+            int bitmap_block = (int)(id_bloque / (8*BLOCK_SIZE));
+            int bitmap_pos = id_bloque % (8*BLOCK_SIZE);
+            int bitmap_byte = (int)(bitmap_pos / 8);
+            int bit = bitmap_pos % 8;
+            printf("bitmap block: %i\n", bitmap_block);
+            printf("bitmap pos: %i\n", bitmap_pos);
+            printf("bitmap byte: %i\n", bitmap_byte);
+            printf("bit: %i\n", bit);
+
+            int bitMapPointer = id_absoluto*BLOCK_SIZE + MBT_SIZE + (bitmap_block+1)*BLOCK_SIZE;
+            unsigned char *buffer_bitmap = malloc(sizeof(char) * BLOCK_SIZE);
+            fseek(disk, bitMapPointer, SEEK_SET);
+            fread(buffer_bitmap, sizeof(char), BLOCK_SIZE, disk);
+
+            fseek(disk, 0, SEEK_SET);
+            fseek(disk, MBT_SIZE + id_absoluto*BLOCK_SIZE + BLOCK_SIZE + BLOCK_SIZE*bitmap_block + bitmap_byte, SEEK_SET);
+            unsigned int pos = 1;
+            printf("pos sin shift: %ui\n", pos);
+            pos <<= 7 - bit;
+            pos = ~pos;
+            printf("pos: %ui\n", pos);
+            printf("bitmap original: %i\n", buffer_bitmap[bitmap_byte]);
+            unsigned int new_byte = buffer_bitmap[bitmap_byte] & pos;
+            printf("bitmap modificado: %i\n", new_byte);
+            fwrite(&new_byte, 1, 1, disk);
+        }
+
+        fseek(disk, 0, SEEK_SET);
+        fseek(disk, file -> directory_entry, SEEK_SET);
+        unsigned char validez = 0x00;
+        fwrite(&validez, 1, 1, disk);
+        fclose(disk);
+        return 0;
+    }
+    else
+    {
+        printf("ARCHIVO NO EXISTE\n");
+        return 1;
+    }
+}
