@@ -6,12 +6,15 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
+
 osFile* os_open(char* filename, char mode){
     if (mode == 'r'){
         if (os_exists(filename)){
             //creamos osfile y asignamos el nombre
             osFile* file = malloc(sizeof(osFile));
             file -> name = filename;
+            file -> mode = mode;
+            file -> bytes_processed = 0;
 
             //buscamos id_absoluto de la particion y su tamaño
             long int id_absoluto = find_partition(CURRENT_PARTITION);
@@ -22,7 +25,7 @@ osFile* os_open(char* filename, char mode){
             unsigned char *buffer;
             buffer = malloc(sizeof(char) * BLOCK_SIZE);
 
-            //recibimos MBT
+            //recibimos directorio
             fseek(disk, 0, SEEK_SET);
             fseek(disk, 1024 + BLOCK_SIZE * id_absoluto, SEEK_SET);
             fread(buffer, sizeof(char), BLOCK_SIZE, disk);
@@ -102,6 +105,9 @@ osFile* os_open(char* filename, char mode){
         else{
             osFile* file = malloc(sizeof(osFile));
             file -> name = filename;
+            file -> mode = mode;
+            file -> bytes_processed = 0;
+
             FILE *disk = fopen(DISK_NAME, "r+b");
             unsigned char *buffer;
             buffer = malloc(sizeof(char) * BLOCK_SIZE);
@@ -193,10 +199,87 @@ osFile* os_open(char* filename, char mode){
     }
 };
 
-int os_read(osFile* file_desc, void* buffer, int nbytes);
+int os_read(osFile* file_desc, void* buffer, int nbytes){
+    if (file_desc -> mode != 'r'){
+        printf("ERROR: NO HAS ABIERTO EL ARCHIVO PARA LEERLO\n");
+        return 0;
+    }
+
+    else{
+        long int id_absoluto = find_partition(CURRENT_PARTITION);
+        // tamaño bytes - bytes leidos son los que quedan
+        int result = file_desc->size - file_desc->bytes_processed;
+        if (result >= nbytes){
+            //se van a leer máximo nbytes, a menos que queden menos que nbytes por leer
+            result = nbytes;
+        }
+        FILE *disk = fopen(DISK_NAME, "rb");
+        fseek(disk, 0, SEEK_SET);
+        long int blocks_read = (int)file_desc->bytes_processed/2048;
+        printf("blocks read %li\n", blocks_read);
+
+        long int bytes_in_block = file_desc->bytes_processed; //offset en el bloque para ubicacion
+        if (blocks_read > 0){
+            bytes_in_block = file_desc->bytes_processed%2048;
+        }
+        printf("bytes in block %li\n", bytes_in_block);
+
+        fseek(disk, file_desc -> location + 5, SEEK_SET);
+
+        unsigned char *index_block = malloc(BLOCK_SIZE - 5);
+        int blocks = file_desc -> size / BLOCK_SIZE;
+        fread(index_block, 1, BLOCK_SIZE - 5, disk);
+
+        long int bytes_read = 0;
+        char read_reasult[result];
+
+        for (int i = blocks_read; i <= blocks; i++)
+        {
+            long int bytes_por_leer = 2048 - bytes_in_block;
+            if (bytes_por_leer >= result - bytes_read){
+                bytes_por_leer = result - bytes_read;
+            }
+            long int id_bloque = index_block[i*3];
+            for (int j = 1; j < 3; j++)
+            {
+                id_bloque <<= 8;
+                id_bloque += index_block[i*3 + j];
+            }
+            printf("id bloque %li\n", id_bloque);
+
+            //ir al bloque de datos y leer byte a byte
+            fseek(disk, 0, SEEK_SET);
+            fseek(disk, MBT_SIZE + id_absoluto*BLOCK_SIZE + id_bloque*BLOCK_SIZE + bytes_in_block, SEEK_SET);
+            
+            unsigned char *buffer_read = malloc(sizeof(char) * result);
+            
+            fread(buffer_read, 1, bytes_por_leer, disk);
+            for (int actual_char = 0; actual_char < bytes_por_leer; actual_char ++)
+            {
+                unsigned char byte = buffer_read[actual_char];
+                read_reasult[bytes_read] = byte;
+                bytes_read ++;
+            }
+            printf("reading: %li\n",bytes_read);
+            if (bytes_read == result){
+                break;
+            }
+        }
+        printf("lectura: %s\n", read_reasult);
+        file_desc->bytes_processed += result;
 
 
-int os_write(osFile* file_desc, void* buffer, int nbytes);
+        return result;
+    }
+};
+
+
+int os_write(osFile* file_desc, void* buffer, int nbytes){
+    if (file_desc -> mode != 'w'){
+        printf("ERROR: NO HAS ABIERTO EL ARCHIVO PARA ESCRIBIRLO\n");
+        return 0;
+    }
+};
 int os_close(osFile* file_desc); //cerrar disco y hacer free (?)
 
 int os_rm(char* filename) //cambiar el byte de validez a 0x00 en bloque directorio
@@ -215,7 +298,7 @@ int os_rm(char* filename) //cambiar el byte de validez a 0x00 en bloque director
         printf("blocks: %i\n", blocks);
 
 
-        for (int i = 0; i < blocks; i++)
+        for (int i = 0; i <= blocks; i++)
         {
             long int id_bloque = buffer[i*3]; // 1111 1111
             for (int j = 1; j < 3; j++)

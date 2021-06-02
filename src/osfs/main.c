@@ -10,8 +10,11 @@
 int main(int argc, char **argv)
 {
     os_mount(argv[1], atoi(argv[2]));
-    //os_open("nene.txt", 'r');
+    osFile* file = os_open("nene.txt", 'r');
+    unsigned char* buffer = malloc(5);
+    os_read(file, buffer, 2995);
+    os_read(file, buffer, 526);
     //os_ls();
     //os_mbt();
-    os_rm("nene.txt");
+    // os_rm("nene.txt");
 }

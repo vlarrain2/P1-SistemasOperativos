@@ -5,6 +5,8 @@ typedef struct osFile{
     long int location;
     long int size;
     long int directory_entry;
+    char mode;
+    long int bytes_processed;
 }osFile;
 
 osFile* os_open(char* filename, char mode);
