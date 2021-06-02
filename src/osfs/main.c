@@ -16,5 +16,5 @@ int main(int argc, char **argv)
     os_read(file, buffer, 526);
     //os_ls();
     //os_mbt();
-    // os_rm("nene.txt");
+    //os_rm("nene.txt");
 }

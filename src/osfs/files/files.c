@@ -36,14 +36,11 @@ osFile* os_open(char* filename, char mode){
             int result;
             for (int i = 0; i < 64; i++)
             {
-                printf("entrada %i\n", i);
-                /*long int aux = buffer[i*32];
-                printf("aux sin shift: %li\n", aux);
-                aux >>= 31*8; //identificación de byte de validez
-                printf("aux: %li\n", aux);*/
+                
                 if (buffer[i*32] ^ (0x00)) //si es archivo entramos
 
                 {
+                    //guardamos letra por letra la info
                     for (int actual_char = 4; actual_char < 32; actual_char ++)
                     {
                         unsigned char byte = buffer[i * 32 + actual_char];
@@ -52,7 +49,7 @@ osFile* os_open(char* filename, char mode){
                     printf("Nombre:\n");
                     printf("%s\n",entryFileName);
                     result = strcmp(filename, entryFileName); //ver si nombres coinciden
-                    if (result == 0) //en el caso de que coincidan veo los datos del archivo
+                    if (result == 0) //en el caso de que coincidan los nombres veo los datos del archivo
                     {   
 
                         long int bytes_id_relativo = buffer[i*32 + 1]; //obtencion de id relativo
@@ -68,6 +65,7 @@ osFile* os_open(char* filename, char mode){
 
                         printf("location: %li\n", file -> location);
                         
+                        //vamos a recibir el bloque indice
                         unsigned char *buffer_index;
                         buffer_index = malloc(sizeof(char) * BLOCK_SIZE);
 
@@ -77,6 +75,7 @@ osFile* os_open(char* filename, char mode){
 
                         long int bytes_file_size = buffer_index[0];
 
+                        //lectura de los primeros 5 bytes
                         for (int j = 1; j < 5; j++)
                         {
                             bytes_file_size <<= 8;
@@ -103,31 +102,40 @@ osFile* os_open(char* filename, char mode){
             printf("YA EXISTE ARCHIVO\n");
         }
         else{
+            //creamos osfile y asignamos el nombre
             osFile* file = malloc(sizeof(osFile));
             file -> name = filename;
             file -> mode = mode;
             file -> bytes_processed = 0;
 
+            //buscamos id_absoluto de la particion y su tamaño
+            long int id_absoluto = find_partition(CURRENT_PARTITION);
+            long int size_partition = find_partition_size(CURRENT_PARTITION);
+
+            //apertura del disco
             FILE *disk = fopen(DISK_NAME, "r+b");
             unsigned char *buffer;
             buffer = malloc(sizeof(char) * BLOCK_SIZE);
-            long int id_absoluto = find_partition(CURRENT_PARTITION);
-            long int size_partition = find_partition_size(CURRENT_PARTITION);
-            //recibimos MBT
+
+            //recibimos directorio
             fseek(disk, 0, SEEK_SET);
             fseek(disk, 1024 + BLOCK_SIZE * id_absoluto, SEEK_SET);
             fread(buffer, sizeof(char), BLOCK_SIZE, disk);
             for (int i = 0; i < 64; i++)
             {
+                //primera entrada que no sea archivo la ocuparemos.
                 if (buffer[i*32] ^ (0x01))
                 {
                     fseek(disk, 0, SEEK_SET);
                     fseek(disk, MBT_SIZE + BLOCK_SIZE*id_absoluto + i*32, SEEK_SET);
+
                     unsigned char validez = 0x01;
-                    fwrite(&validez, 1, 1, disk);
+                    fwrite(&validez, 1, 1, disk); //cambio del bit de validez
+
                     fseek(disk, 0, SEEK_SET);
                     fseek(disk, MBT_SIZE + BLOCK_SIZE*id_absoluto + BLOCK_SIZE, SEEK_SET);
                     long int id_relativo = 0;
+                    //vamos a ver el bitmap y a ver el primer bit que esté libre, para asignar el índice.
                     int nofbitmaps = get_bitmaps_number(CURRENT_PARTITION);
                     for (int j=0; j<nofbitmaps; j++)
                     {
@@ -138,13 +146,12 @@ osFile* os_open(char* filename, char mode){
                         printf("Bitmap numero %i de la Particion %i\n", j+1, CURRENT_PARTITION);
                         for (int index = 0; index < BLOCK_SIZE; index++)
                         {
-                            ///
                             unsigned int byte = buffer[index];
                             for (size_t k = 0; k < 8; k++)
                             {
                                 unsigned int bit = byte & 0x080;
                                 bit >>= 7;
-                                if (bit == 0)
+                                if (bit == 0) //encontramos el bit que es igual a cero y lo cambiaremos a 1.
                                 {
                                     id_relativo = j * BLOCK_SIZE * 8 + index*8 + k;
                                     fseek(disk, 0, SEEK_SET);
@@ -171,11 +178,16 @@ osFile* os_open(char* filename, char mode){
                             break;
                         }
                     }
+
                     printf("id relativo: %li\n", id_relativo);
                     printf("partition size: %li\n", size_partition);
+
+                    //escritura id relativo
                     fseek(disk, 0, SEEK_SET);
                     fseek(disk, MBT_SIZE + BLOCK_SIZE*id_absoluto + i*32 + 1, SEEK_SET);
                     fwrite(&id_relativo, 3, 1, disk);
+
+                    // escritura del nombre y luego ceros en los bytes sobrantes
                     fseek(disk, 0, SEEK_SET);
                     fseek(disk, MBT_SIZE + BLOCK_SIZE*id_absoluto + i*32 + 4, SEEK_SET);
                     fwrite(filename, 1, strlen(filename), disk);
@@ -187,6 +199,7 @@ osFile* os_open(char* filename, char mode){
                         fwrite(&zero, 1, 1, disk);
                     }
                     fclose(disk);
+
                     osFile* file = malloc(sizeof(osFile));
                     file -> name = filename;
                     file -> location = MBT_SIZE + id_absoluto*BLOCK_SIZE + id_relativo*BLOCK_SIZE;
@@ -202,7 +215,6 @@ osFile* os_open(char* filename, char mode){
 int os_read(osFile* file_desc, void* buffer, int nbytes){
     if (file_desc -> mode != 'r'){
         printf("ERROR: NO HAS ABIERTO EL ARCHIVO PARA LEERLO\n");
-        return 0;
     }
 
     else{
@@ -213,32 +225,40 @@ int os_read(osFile* file_desc, void* buffer, int nbytes){
             //se van a leer máximo nbytes, a menos que queden menos que nbytes por leer
             result = nbytes;
         }
+
         FILE *disk = fopen(DISK_NAME, "rb");
         fseek(disk, 0, SEEK_SET);
         long int blocks_read = (int)file_desc->bytes_processed/2048;
+        //la cantidad de bloques leidos tiene que ver con los bytes leídos en el último read
         printf("blocks read %li\n", blocks_read);
 
         long int bytes_in_block = file_desc->bytes_processed; //offset en el bloque para ubicacion
         if (blocks_read > 0){
+            // si hay más de un bloque leído se calcula el offset en el bloque actual con el resto
             bytes_in_block = file_desc->bytes_processed%2048;
         }
         printf("bytes in block %li\n", bytes_in_block);
 
         fseek(disk, file_desc -> location + 5, SEEK_SET);
-
+        //recepcion bloque indice
         unsigned char *index_block = malloc(BLOCK_SIZE - 5);
         int blocks = file_desc -> size / BLOCK_SIZE;
         fread(index_block, 1, BLOCK_SIZE - 5, disk);
 
         long int bytes_read = 0;
+        //variable para guardar el contenido leido
         char read_reasult[result];
 
         for (int i = blocks_read; i <= blocks; i++)
         {
+            //cantidad de bytes según lo que queda del bloque de datos actual
             long int bytes_por_leer = 2048 - bytes_in_block;
             if (bytes_por_leer >= result - bytes_read){
+                //cuantos quedan por leer segun los bytes que ya han sido leidos
                 bytes_por_leer = result - bytes_read;
             }
+
+            //obtención del id del puntero al bloque de datos.
             long int id_bloque = index_block[i*3];
             for (int j = 1; j < 3; j++)
             {
@@ -261,14 +281,15 @@ int os_read(osFile* file_desc, void* buffer, int nbytes){
                 bytes_read ++;
             }
             printf("reading: %li\n",bytes_read);
+
+            //si ya lei todos los bytes pedidos, termino.
             if (bytes_read == result){
                 break;
             }
         }
         printf("lectura: %s\n", read_reasult);
         file_desc->bytes_processed += result;
-
-
+        //sumo los bytes procesados, para que el proximo os_read inicie en donde quedé
         return result;
     }
 };
