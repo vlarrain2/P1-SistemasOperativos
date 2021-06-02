@@ -84,10 +84,12 @@ osFile* os_open(char* filename, char mode){
                         printf("\nsize: %li\n\n", bytes_file_size);
                         file -> size = bytes_file_size;
                         file -> directory_entry =  MBT_SIZE + BLOCK_SIZE*id_absoluto + 32*i;
+                        free(buffer_index);
                         break;
                     }
                 }  
             }
+            free(buffer);
             fclose(disk);
             return file;
         }
@@ -135,13 +137,13 @@ osFile* os_open(char* filename, char mode){
                     for (int j=0; j<nofbitmaps; j++)
                     {
                         int bitMapPointer = id_absoluto*BLOCK_SIZE + MBT_SIZE + (j+1)*BLOCK_SIZE;
-                        buffer = malloc(sizeof(char) * BLOCK_SIZE);
+                        unsigned char *buffer1 = malloc(sizeof(char) * BLOCK_SIZE);
                         fseek(disk, bitMapPointer, SEEK_SET);
-                        fread(buffer, sizeof(char), BLOCK_SIZE, disk);
+                        fread(buffer1, sizeof(char), BLOCK_SIZE, disk);
                         printf("Bitmap numero %i de la Particion %i\n", j+1, CURRENT_PARTITION);
                         for (int index = 0; index < BLOCK_SIZE; index++)
                         {
-                            unsigned int byte = buffer[index];
+                            unsigned int byte = buffer1[index];
                             for (size_t k = 0; k < 8; k++)
                             {
                                 unsigned int bit = byte & 0x080;
@@ -155,10 +157,11 @@ osFile* os_open(char* filename, char mode){
                                     printf("pos sin shift: %i\n", pos);
                                     pos <<= 7 - k;
                                     printf("pos: %i\n", pos);
-                                    printf("bitmap original: %i\n", buffer[index]);
-                                    unsigned int new_byte = buffer[index] | pos;
+                                    printf("bitmap original: %i\n", buffer1[index]);
+                                    unsigned int new_byte = buffer1[index] | pos;
                                     printf("bitmap modificado: %i\n", new_byte);
                                     fwrite(&new_byte, 1, 1, disk);
+                                    free(buffer1);
                                     break;
                                 }
                                 byte <<= 1;
@@ -202,6 +205,7 @@ osFile* os_open(char* filename, char mode){
                     file -> directory_entry =  MBT_SIZE + BLOCK_SIZE*id_absoluto + 32*i;
                     file -> mode = mode;
                     file -> bytes_processed = 0;
+                    free(buffer);
                     return file;
                 }
             }
@@ -282,7 +286,7 @@ int os_read(osFile* file_desc, void* buffer, int nbytes){
                 bytes_read ++;
             }
             printf("reading: %li\n",bytes_read);
-
+            free(buffer_read);
             //si ya lei todos los bytes pedidos, termino.
             if (bytes_read == result){
                 break;
@@ -290,6 +294,7 @@ int os_read(osFile* file_desc, void* buffer, int nbytes){
         }
         printf("lectura: %s\n", read_reasult);
         file_desc->bytes_processed += result;
+        free(index_block);
         fclose(disk);
         //sumo los bytes procesados, para que el proximo os_read inicie en donde quedé
         return result;
@@ -321,15 +326,6 @@ int os_write(osFile* file_desc, void* buffer, int nbytes){
             fseek(disk, 0, SEEK_SET);
             fseek(disk, file_desc -> location + 5 + i, SEEK_SET);
             fwrite(&free_block, 1, 3, disk);
-
-            fseek(disk, 0, SEEK_SET);
-            fseek(disk, file_desc -> location + 5 + i, SEEK_SET);
-            unsigned char *buffer_prueba = malloc(3);
-            fread(buffer_prueba, 1, 3, disk);
-            for (int byte = 0; byte < 3; byte++)
-            {
-                printf("free block[%i]: %ui\n", byte, buffer_prueba[byte]);
-            }
 
             fseek(disk, 0, SEEK_SET);
             fseek(disk, MBT_SIZE + id_absoluto*BLOCK_SIZE + free_block*BLOCK_SIZE, SEEK_SET);
@@ -378,10 +374,13 @@ long int get_first_free_block()
                     unsigned int new_byte = buffer[index] | pos;
                     printf("bitmap modificado: %i\n", new_byte);
                     fwrite(&new_byte, 1, 1, disk);
+                    free(buffer);
+                    fclose(disk);
                     return id_relativo;
                 }
                 byte <<= 1;
             }
+            free(buffer);
         }
     }
     fclose(disk);
@@ -446,6 +445,8 @@ int os_rm(char* filename) //cambiar el byte de validez a 0x00 en bloque director
             unsigned int new_byte = buffer_bitmap[bitmap_byte] & pos;
             printf("bitmap modificado: %i\n", new_byte);
             fwrite(&new_byte, 1, 1, disk);
+            free(buffer);
+            free(buffer_bitmap);
         }
 
         fseek(disk, 0, SEEK_SET);
